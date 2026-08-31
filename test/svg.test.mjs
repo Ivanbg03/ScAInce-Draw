@@ -235,6 +235,19 @@ console.log('\nlabel baselines');
     subscript.children[1].attributes.dy);
   check('a superscript moves up',
     Number(mathText('x^2', { size }).children[1].attributes.dy) < 0);
+
+  const fraction = mathText('\\frac{1}{2}', { size });
+  const fractionTags = [];
+  const fractionText = [];
+  walk(fraction, (node) => {
+    fractionTags.push(node.tagName);
+    if (node.textContent) fractionText.push(node.textContent);
+  });
+  check('a fraction renders as a grouped label', fraction.tagName === 'g', fraction.tagName);
+  check('a fraction draws a rule', fractionTags.includes('line'), fractionTags.join(','));
+  check('a fraction draws numerator and denominator',
+    fractionText.includes('1') && fractionText.includes('2'),
+    JSON.stringify(fractionText));
 }
 
 /* 4. The export mode drops the interactive layers. */

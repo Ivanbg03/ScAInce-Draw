@@ -7,8 +7,8 @@
  *   the exact formula.
  *
  * The supported subset: \symbol, _sub, ^sup, {groups}, \vec{}, \hat{}, \bar{},
- * \text{}. It does not support fractions, roots or matrices. Those still export
- * correctly to TikZ; they only look plain on the screen.
+ * \text{}, and \frac{}{}. Roots and matrices still export correctly to TikZ;
+ * they only look plain on the screen.
  */
 
 import { svg, round } from './dom.js';
@@ -107,6 +107,14 @@ function advanceOf(text, size) {
   return width * size;
 }
 
+function fractionWidth(run, size) {
+  const fracSize = size * 0.72;
+  return Math.max(
+    measureText(run.frac.numerator, fracSize),
+    measureText(run.frac.denominator, fracSize),
+  ) + size * 0.25;
+}
+
 /**
  * The characters LaTeX sets in italic: Latin letters and lowercase Greek.
  *
@@ -159,24 +167,53 @@ export function toRuns(source) {
     }
   };
 
+  const readCommandName = () => {
+    const start = index;
+    while (index < text.length && /[a-zA-Z]/.test(text[index])) index++;
+    return text.slice(start, index);
+  };
+
+  const readBalancedGroup = () => {
+    let depth = 1;
+    const start = ++index;
+    while (index < text.length && depth > 0) {
+      if (text[index] === '\\') {
+        index += 2;
+        continue;
+      }
+      if (text[index] === '{') depth++;
+      else if (text[index] === '}') depth--;
+      index++;
+    }
+    return text.slice(start, index - 1);
+  };
+
   // Reads the argument after _ ^ or an accent command.
   const readGroup = () => {
     if (text[index] === '{') {
-      let depth = 1;
-      let start = ++index;
-      while (index < text.length && depth > 0) {
-        if (text[index] === '{') depth++;
-        else if (text[index] === '}') depth--;
-        index++;
-      }
-      return text.slice(start, index - 1);
+      return readBalancedGroup();
     }
     if (text[index] === '\\') {
       const start = index++;
-      while (index < text.length && /[a-zA-Z]/.test(text[index])) index++;
+      const name = readCommandName();
+      if (name === 'frac' || name === 'dfrac' || name === 'tfrac') {
+        readGroup();
+        readGroup();
+      }
       return text.slice(start, index);
     }
     return text[index++] ?? '';
+  };
+
+  const pushFraction = (name) => {
+    const numerator = readGroup();
+    const denominator = readGroup();
+    runs.push({
+      text: `${plain(numerator)}/${plain(denominator)}`,
+      shift: 'base',
+      upright: false,
+      frac: { numerator, denominator, display: name === 'dfrac' },
+    });
   };
 
   while (index < text.length) {
@@ -185,13 +222,15 @@ export function toRuns(source) {
     if (char === '\\') {
       index++;
       let name = '';
-      while (index < text.length && /[a-zA-Z]/.test(text[index])) name += text[index++];
+      name = readCommandName();
 
       if (ACCENTS[name]) {
         // An accented run stands alone. Merging it into a neighbour would lose
         // track of which letters the mark belongs over.
         runs.push({ text: plain(readGroup()), shift: 'base', accent: name, upright: !mathMode });
         continue;
+      } else if (name === 'frac' || name === 'dfrac' || name === 'tfrac') {
+        pushFraction(name);
       } else if (name === 'text' || name === 'mathrm') {
         push(plain(readGroup()), 'base', true);
       } else if (FUNCTIONS.has(name)) {
@@ -270,9 +309,98 @@ export function plain(source) {
 export function measureText(source, size = 14) {
   let width = 0;
   for (const run of toRuns(source)) {
-    width += advanceOf(run.text, run.shift === 'base' ? size : size * 0.72);
+    if (run.frac && run.shift === 'base') width += fractionWidth(run, size);
+    else width += advanceOf(run.text, run.shift === 'base' ? size : size * 0.72);
   }
   return width;
+}
+
+function textPaintAttrs(color, halo, size) {
+  return {
+    fill: color,
+    stroke: halo || null,
+    'stroke-width': halo ? round(Math.max(2, size * 0.22), 2) : null,
+    'stroke-linejoin': halo ? 'round' : null,
+    'paint-order': halo ? 'stroke fill' : null,
+  };
+}
+
+function mathTextWithFractions(source, options, runs) {
+  const {
+    x = 0, y = 0, anchor = 'middle', size = 14,
+    color = 'currentColor', rotate = 0, baseline = 'middle',
+    halo = null,
+  } = options;
+
+  const totalWidth = measureText(source, size);
+  const startX = anchor === 'start' ? x : anchor === 'end' ? x - totalWidth : x - totalWidth / 2;
+  const group = svg('g', {
+    transform: rotate ? `rotate(${rotate} ${x} ${y})` : null,
+  });
+  let cursor = startX;
+
+  const appendText = (text, atX, atY, runSize, runAnchor, upright) => {
+    const node = svg('text', {
+      x: atX,
+      y: atY,
+      'text-anchor': runAnchor,
+      'dominant-baseline': baseline,
+      'font-size': runSize,
+      'font-family': MATH_FONT,
+      'font-style': upright ? 'normal' : 'italic',
+      ...textPaintAttrs(color, halo, runSize),
+    });
+    node.textContent = text;
+    group.append(node);
+    return node;
+  };
+
+  for (const run of runs) {
+    if (run.frac && run.shift === 'base') {
+      const fracSize = round(size * 0.72, 2);
+      const width = fractionWidth(run, size);
+      const center = cursor + width / 2;
+      const top = y - size * 0.34;
+      const bottom = y + size * 0.38;
+      const ruleY = y + size * 0.03;
+
+      appendText(plain(run.frac.numerator), center, top, fracSize, 'middle', false);
+      if (halo) {
+        group.append(svg('line', {
+          x1: round(cursor, 3), y1: round(ruleY, 3),
+          x2: round(cursor + width, 3), y2: round(ruleY, 3),
+          stroke: halo,
+          'stroke-width': round(Math.max(3, size * 0.28), 2),
+          'stroke-linecap': 'round',
+        }));
+      }
+      group.append(svg('line', {
+        x1: round(cursor, 3), y1: round(ruleY, 3),
+        x2: round(cursor + width, 3), y2: round(ruleY, 3),
+        stroke: color,
+        'stroke-width': round(Math.max(1, size * 0.08), 2),
+        'stroke-linecap': 'round',
+      }));
+      appendText(plain(run.frac.denominator), center, bottom, fracSize, 'middle', false);
+      cursor += width;
+      continue;
+    }
+
+    const target = run.shift === 'sub' ? 0.28 : run.shift === 'sup' ? -0.45 : 0;
+    const runSize = run.shift === 'base' ? size : round(size * 0.72, 2);
+    const runY = y + target * size;
+    const baseWidth = advanceOf(run.text, runSize);
+    appendText(run.text, cursor, runY, runSize, 'start', run.upright);
+
+    if (run.accent && DRAWN[run.accent]) {
+      const mark = DRAWN[run.accent];
+      const markSize = round(runSize * mark.scale, 2);
+      appendText(mark.glyph, cursor + baseWidth / 2, runY - mark.rise * runSize, markSize, 'middle', true);
+    }
+    cursor += baseWidth;
+  }
+
+  return group;
 }
 
 /**
@@ -285,6 +413,11 @@ export function mathText(source, options = {}) {
     color = 'currentColor', rotate = 0, baseline = 'middle',
     halo = null,
   } = options;
+
+  const runs = toRuns(source);
+  if (runs.some((run) => run.frac)) {
+    return mathTextWithFractions(source, options, runs);
+  }
 
   // Georgia carries no combining marks, so \vec{F} came out as a tofu box.
   // Cambria Math and Segoe UI Symbol do; the browser falls back per glyph.
@@ -314,7 +447,7 @@ export function mathText(source, options = {}) {
   let pendingDx = 0;   // put back what an accent mark borrowed
   let pendingDy = 0;
 
-  for (const run of toRuns(source)) {
+  for (const run of runs) {
     const target = run.shift === 'sub' ? 0.28 : run.shift === 'sup' ? -0.45 : 0;
     const runSize = run.shift === 'base' ? size : round(size * 0.72, 2);
 
