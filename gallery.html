@@ -1,0 +1,61 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>shape gallery</title>
+<style>
+ body { font: 13px system-ui, sans-serif; background: #fff; color: #14181f; margin: 14px; }
+ h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #2f5fd0; margin: 18px 0 6px; }
+ .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+ .cell { border: 1px solid #dfe3ea; border-radius: 6px; padding: 6px; text-align: center; }
+ .cell svg { display: block; margin: 0 auto; background: #fff; }
+ .name { font-size: 11px; color: #5f6773; margin-top: 4px; }
+</style></head><body>
+<div id="out"></div>
+<script type="module">
+for (const f of ['common','annotation','geometry','mechanics','mechanics-parts','plots',
+  'plots-extra','schematic','optics','optics-parts','fields','circuit']) {
+  await import(`./src/types/${f}.js`);
+}
+const { typesByGroup, createElement } = await import('./src/registry.js');
+const { renderDocument } = await import('./src/render.js');
+const { iconFor } = await import('./src/icons.js');
+
+const out = document.getElementById('out');
+
+for (const [group, types] of typesByGroup()) {
+  const h = document.createElement('h2');
+  h.textContent = group;
+  out.append(h);
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+
+  for (const type of types) {
+    // Draw each shape big, on its icon framing, so the geometry is checkable.
+    const icon = iconFor(type.name);
+    const scale = Math.min(190 / icon.w, 130 / icon.h);
+    const taken = new Set();
+    const elements = icon.extra.map((e) => {
+      const x = createElement(e.type, { id: e.id, ...e.values }, taken);
+      taken.add(x.id); return x;
+    });
+    elements.push(createElement(type.name, { ...icon.values, label: '' }, taken));
+
+    const doc = { title: '', canvas: { width: icon.w, height: icon.h, grid: 1, showGrid: false, snap: false }, elements };
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    try {
+      const { root } = renderDocument(doc, { scale }, { selection: [], interactive: false, margin: 6 });
+      cell.append(root);
+    } catch (error) {
+      cell.textContent = 'FAILED: ' + error.message;
+    }
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = type.label;
+    cell.append(name);
+    grid.append(cell);
+  }
+  out.append(grid);
+}
+document.title = 'ready';
+</script>
+</body></html>

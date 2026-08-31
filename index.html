@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagram Studio — mathematics and physics figures</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header id="toolbar" class="toolbar"></header>
+
+<main class="layout">
+
+  <aside class="pane pane-left">
+    <h2>Shapes</h2>
+    <div id="palette"></div>
+  </aside>
+
+  <div class="splitter" data-side="left" title="Drag to resize. Double click to collapse."></div>
+
+  <section class="pane pane-canvas">
+    <div id="canvas-host" class="canvas-host" tabindex="0"></div>
+    <div class="statusbar">
+      <span id="status" class="status"></span>
+      <span class="spacer"></span>
+      <button type="button" id="help-button" class="ghost tiny" title="Keyboard and mouse reference">
+        Shortcuts
+      </button>
+    </div>
+  </section>
+
+  <div class="splitter" data-side="right" title="Drag to resize. Double click to collapse."></div>
+
+  <aside class="pane pane-right">
+    <h2>Properties</h2>
+    <div id="inspector"></div>
+
+    <details class="section outline-section" open>
+      <summary class="section-title">Outline</summary>
+      <div id="outline"></div>
+    </details>
+  </aside>
+
+</main>
+
+<dialog id="tikz-dialog" class="tikz-dialog">
+  <form method="dialog">
+    <h2>TikZ source</h2>
+    <p class="muted small">
+      Paste into a LaTeX document. The comment at the top lists every package
+      the figure needs.
+    </p>
+    <textarea id="tikz-output" rows="20" spellcheck="false" readonly></textarea>
+    <div class="row gap">
+      <button type="button" id="tikz-copy" class="primary">Copy</button>
+      <button type="button" id="tikz-download">Download .tex</button>
+      <span class="spacer"></span>
+      <button value="close" class="ghost">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="help-dialog" class="help-dialog">
+  <form method="dialog">
+    <h2>Shortcuts</h2>
+    <dl class="help-grid">
+      <div class="head">Placing</div>
+      <dt>Drag a shape</dt><dd>Drops where you release, snapped to the grid</dd>
+      <dt>Click a shape</dt><dd>Drops in the middle of the sheet</dd>
+
+      <div class="head">Selecting</div>
+      <dt><kbd>Click</kbd></dt><dd>Select one</dd>
+      <dt><kbd>Shift</kbd> click</dt><dd>Add to or remove from the selection</dd>
+      <dt>Sweep the sheet</dt><dd>Marquee select everything the box touches</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>A</kbd></dt><dd>Select everything</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Deselect</dd>
+
+      <div class="head">Editing</div>
+      <dt>Drag</dt><dd>Move the whole selection</dd>
+      <dt>Square handle</dt><dd>Set a length and an angle together</dd>
+      <dt>Round grip</dt><dd>Rotate. Hold <kbd>Shift</kbd> for 15° steps</dd>
+      <dt>Arrow keys</dt><dd>Nudge a quarter step, <kbd>Shift</kbd> for a full step</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>D</kbd></dt><dd>Duplicate, keeping links inside the copy</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>C</kbd> / <kbd>V</kbd></dt><dd>Copy and paste</dd>
+      <dt><kbd>Del</kbd></dt><dd>Remove the selection</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>Z</kbd></dt><dd>Undo, <kbd>Shift</kbd> to redo</dd>
+
+      <div class="head">View</div>
+      <dt><kbd>Ctrl</kbd> wheel</dt><dd>Zoom about the pointer</dd>
+      <dt>Middle drag</dt><dd>Pan. <kbd>Space</kbd> and drag does the same</dd>
+      <dt>Right click</dt><dd>Context menu</dd>
+      <dt><kbd>Fit</kbd></dt><dd>Zoom so the whole sheet fits the window</dd>
+
+      <div class="head">Space to draw in</div>
+      <dt>Sheet edge grips</dt><dd>Drag the top or right edge to enlarge the sheet</dd>
+      <dt>Panel dividers</dt><dd>Drag to resize, double click to collapse</dd>
+      <dt>Panel buttons</dt><dd>Hide either side panel from the toolbar</dd>
+    </dl>
+    <div class="row gap">
+      <span class="spacer"></span>
+      <button value="close" class="primary">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="src/main.js?v=webmcp32"></script>
+</body>
+</html>

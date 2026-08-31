@@ -1,0 +1,15 @@
+{
+  "name": "diagram-studio",
+  "private": true,
+  "type": "module",
+  "description": "A GUI for mathematics and physics diagrams. SVG, PNG and TikZ export.",
+  "scripts": {
+    "build": "node scripts/build-site.mjs",
+    "serve": "python -m http.server 8124 --bind 127.0.0.1",
+    "test": "node test/render.test.mjs && node test/svg.test.mjs && node test/robustness.test.mjs && node test/webmcp.test.mjs",
+    "test:browser": "node test/browser.test.mjs",
+    "chrome": "\"C:/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --remote-debugging-port=9222 --user-data-dir=%TEMP%/diagram-studio-cdp --window-size=1400,950 http://127.0.0.1:8124/",
+    "test:components": "node test/components.test.mjs",
+    "test:ui": "node test/ui-components.test.mjs"
+  }
+}
