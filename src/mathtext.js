@@ -1,14 +1,12 @@
 /**
- * A LaTeX-lite renderer for labels.
+ * Math rendering for labels.
  *
  * The document stores the LaTeX source, for example "\vec{F}_{net}".
- * - The SVG shows an approximation: real Unicode symbols and positioned scripts.
+ * - The browser preview asks MathJax for real SVG math when it is available.
+ * - A small local renderer keeps labels visible while MathJax loads and in
+ *   headless tests.
  * - The TikZ export emits the source unchanged inside $...$, so the paper gets
  *   the exact formula.
- *
- * The supported subset: \symbol, _sub, ^sup, {groups}, \vec{}, \hat{}, \bar{},
- * \text{}, and \frac{}{}. Roots and matrices still export correctly to TikZ;
- * they only look plain on the screen.
  */
 
 import { svg, round } from './dom.js';
@@ -411,7 +409,7 @@ function mathTextWithPositionedRuns(source, options, runs) {
   };
 
   const appendMath = (text, atX, atY, runSize) => {
-    group.append(mathText(text, {
+    group.append(fallbackMathText(text, {
       x: atX,
       y: atY,
       anchor: 'middle',
@@ -470,10 +468,10 @@ function mathTextWithPositionedRuns(source, options, runs) {
 }
 
 /**
- * Builds an SVG <text> node.
+ * Builds the local fallback SVG label.
  * options: { x, y, anchor, size, color, rotate, baseline }
  */
-export function mathText(source, options = {}) {
+function fallbackMathText(source, options = {}) {
   const {
     x = 0, y = 0, anchor = 'middle', size = 14,
     color = 'currentColor', rotate = 0, baseline = 'middle',
@@ -556,6 +554,165 @@ export function mathText(source, options = {}) {
   }
 
   return node;
+}
+
+function sourceForMathJax(source) {
+  const text = String(source ?? '').trim();
+  if (!text) return null;
+  if (!dollarsBalanced(text) || !bracesBalanced(text)) return null;
+  if (text.startsWith('$$') && text.endsWith('$$') && text.length > 4) {
+    return text.slice(2, -2).trim();
+  }
+  if (text.startsWith('$') && text.endsWith('$') && text.length > 2) {
+    return text.slice(1, -1).trim();
+  }
+  if (text.startsWith('\\(') && text.endsWith('\\)') && text.length > 4) {
+    return text.slice(2, -2).trim();
+  }
+  if (text.includes('$')) return null;
+  return looksLikeMath(text) ? text : null;
+}
+
+function mathJaxApi() {
+  return globalThis.MathJax || globalThis.window?.MathJax || null;
+}
+
+let mathJaxReadyPromise = null;
+
+function whenMathJaxReady() {
+  if (typeof window === 'undefined') return null;
+  const current = mathJaxApi();
+  if (current?.startup?.promise) {
+    return current.startup.promise.then(() => mathJaxApi());
+  }
+  if (current?.tex2svg || current?.tex2svgPromise) return Promise.resolve(current);
+  if (mathJaxReadyPromise) return mathJaxReadyPromise;
+
+  mathJaxReadyPromise = new Promise((resolve, reject) => {
+    let attempts = 0;
+    const tick = () => {
+      const api = mathJaxApi();
+      if (api?.startup?.promise) {
+        api.startup.promise.then(() => resolve(mathJaxApi())).catch(reject);
+      } else if (api?.tex2svg || api?.tex2svgPromise) {
+        resolve(api);
+      } else if (attempts++ > 200) {
+        reject(new Error('MathJax did not finish loading.'));
+      } else {
+        window.setTimeout(tick, 50);
+      }
+    };
+    tick();
+  });
+  return mathJaxReadyPromise;
+}
+
+function mathJaxBaselineY(y, baseline, minY, height, scale) {
+  const ascent = Math.max(0, -minY);
+  const descent = Math.max(0, minY + height);
+  if (baseline === 'middle' || baseline === 'central') {
+    return y + (ascent - descent) * scale / 2;
+  }
+  if (baseline === 'hanging') return y + ascent * scale;
+  return y;
+}
+
+function mathJaxNodeFromContainer(container, tex, options) {
+  const sourceSvg = container?.querySelector?.('svg')
+    || (container?.tagName?.toLowerCase?.() === 'svg' ? container : null);
+  if (!sourceSvg) return null;
+
+  const viewBox = (sourceSvg.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
+  if (viewBox.length !== 4 || viewBox.some((value) => !Number.isFinite(value))) return null;
+
+  const {
+    x = 0, y = 0, anchor = 'middle', size = 14,
+    color = 'currentColor', rotate = 0, baseline = 'middle',
+    halo = null,
+  } = options;
+  const [minX, minY, widthUnits, heightUnits] = viewBox;
+  const scale = size / 1000;
+  const width = widthUnits * scale;
+  const height = heightUnits * scale;
+  const startX = anchor === 'start' ? x : anchor === 'end' ? x - width : x - width / 2;
+  const baselineY = mathJaxBaselineY(y, baseline, minY, heightUnits, scale);
+  const topY = baselineY + minY * scale;
+
+  const group = svg('g', {
+    'data-latex-renderer': 'mathjax',
+    'data-mathjax-source': tex,
+    color,
+    transform: rotate ? `rotate(${rotate} ${x} ${y})` : null,
+  });
+
+  const configure = (node) => {
+    node.removeAttribute('style');
+    node.setAttribute('x', round(startX + minX * scale, 3));
+    node.setAttribute('y', round(topY, 3));
+    node.setAttribute('width', round(width, 3));
+    node.setAttribute('height', round(height, 3));
+    node.setAttribute('overflow', 'visible');
+    node.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+    node.setAttribute('focusable', 'false');
+    node.setAttribute('aria-label', tex);
+    node.style.color = color;
+    return node;
+  };
+
+  if (halo) {
+    const shadow = configure(sourceSvg.cloneNode(true));
+    shadow.setAttribute('stroke', halo);
+    shadow.setAttribute('stroke-width', round(Math.max(2, size * 0.12), 2));
+    shadow.setAttribute('stroke-linejoin', 'round');
+    shadow.setAttribute('paint-order', 'stroke fill');
+    group.append(shadow);
+  }
+
+  group.append(configure(sourceSvg.cloneNode(true)));
+  return group;
+}
+
+function renderMathJaxSync(tex, options) {
+  const api = mathJaxApi();
+  if (!api?.tex2svg) return null;
+  try {
+    return mathJaxNodeFromContainer(api.tex2svg(tex, { display: false }), tex, options);
+  } catch {
+    return null;
+  }
+}
+
+function queueMathJaxRender(fallback, tex, options) {
+  const ready = whenMathJaxReady();
+  if (!ready) return;
+  ready.then(async (api) => {
+    if (!fallback.parentNode) return;
+    const container = api.tex2svgPromise
+      ? await api.tex2svgPromise(tex, { display: false })
+      : api.tex2svg(tex, { display: false });
+    const rendered = mathJaxNodeFromContainer(container, tex, options);
+    if (rendered && fallback.parentNode) fallback.replaceWith(rendered);
+  }).catch(() => {});
+}
+
+/**
+ * Builds an SVG math label. MathJax is used in the browser when available;
+ * otherwise the local SVG approximation is returned.
+ */
+export function mathText(source, options = {}) {
+  const tex = sourceForMathJax(source);
+  if (tex) {
+    const rendered = renderMathJaxSync(tex, options);
+    if (rendered) return rendered;
+  }
+
+  const fallback = fallbackMathText(source, options);
+  if (tex) {
+    fallback.setAttribute('data-latex-renderer', 'fallback');
+    fallback.setAttribute('data-mathjax-source', tex);
+    queueMathJaxRender(fallback, tex, options);
+  }
+  return fallback;
 }
 
 /**

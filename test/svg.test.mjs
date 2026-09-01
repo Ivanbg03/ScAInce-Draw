@@ -11,14 +11,32 @@ class StubNode {
     this.tagName = tag;
     this.attributes = {};
     this.children = [];
+    this.style = {};
     this.text = '';
   }
 
   setAttribute(name, value) { this.attributes[name] = String(value); }
   getAttribute(name) { return Object.hasOwn(this.attributes, name) ? this.attributes[name] : null; }
+  removeAttribute(name) { delete this.attributes[name]; }
   append(...nodes) { for (const node of nodes) if (node) this.children.push(node); }
   set textContent(value) { this.text = String(value); }
   get textContent() { return this.text; }
+  cloneNode(deep = false) {
+    const node = new StubNode(this.tagName);
+    node.attributes = { ...this.attributes };
+    node.style = { ...this.style };
+    node.text = this.text;
+    node.children = deep ? this.children.map((child) => child.cloneNode(true)) : [];
+    return node;
+  }
+  querySelector(tag) {
+    if (this.tagName === tag) return this;
+    for (const child of this.children) {
+      const found = child.querySelector(tag);
+      if (found) return found;
+    }
+    return null;
+  }
 }
 
 globalThis.document = {
@@ -293,6 +311,30 @@ console.log('\nlabel baselines');
     denominatorText.some((node) => node.value.trim() === 'cos')
       && denominatorText.some((node) => node.value === 'θ'),
     JSON.stringify(denominatorText));
+
+  const previousWindow = globalThis.window;
+  const previousMathJax = globalThis.MathJax;
+  const fakeMathJax = {
+    tex2svg: () => {
+      const root = document.createElement('div');
+      const formula = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      formula.setAttribute('viewBox', '0 -800 2200 1100');
+      formula.append(document.createElementNS('http://www.w3.org/2000/svg', 'path'));
+      root.append(formula);
+      return root;
+    },
+  };
+  globalThis.window = { MathJax: fakeMathJax };
+  globalThis.MathJax = fakeMathJax;
+  const mathJax = mathText('x^2', { size, x: 40, y: 20, anchor: 'middle' });
+  check('a browser with MathJax uses real SVG math',
+    mathJax.attributes['data-latex-renderer'] === 'mathjax'
+      && mathJax.children.some((child) => child.tagName === 'svg'),
+    JSON.stringify(mathJax.attributes));
+  if (previousWindow === undefined) delete globalThis.window;
+  else globalThis.window = previousWindow;
+  if (previousMathJax === undefined) delete globalThis.MathJax;
+  else globalThis.MathJax = previousMathJax;
 }
 
 /* 4. The export mode drops the interactive layers. */
