@@ -112,6 +112,12 @@ section('math text');
     return runs[runs.length - 1].text === 'k' && runs[runs.length - 1].shift === 'sub';
   })());
   check('a superscript is marked', toRuns('x^2')[1].shift === 'sup');
+  check('a braced superscript keeps every character', (() => {
+    const runs = toRuns('x^{n+1}');
+    return runs[0].text === 'x'
+      && runs.slice(1).every((run) => run.shift === 'sup')
+      && runs.slice(1).map((run) => run.text).join('') === 'n+1';
+  })());
   check('a fraction is a structured run', (() => {
     const runs = toRuns('\\frac{1}{2}');
     return runs.length === 1 && runs[0].frac
@@ -125,6 +131,8 @@ section('math text');
   check('plain text passes through', plain('m g') === 'm g');
   check('TikZ wraps in math mode', toTikz('\\theta') === '$\\theta$');
   check('TikZ keeps fraction source', toTikz('\\frac{1}{2}') === '$\\frac{1}{2}$', toTikz('\\frac{1}{2}'));
+  check('TikZ keeps powers inside fractions', toTikz('\\frac{x^2}{3}') === '$\\frac{x^2}{3}$',
+    toTikz('\\frac{x^2}{3}'));
   check('TikZ leaves existing math alone', toTikz('$a$') === '$a$');
   check('TikZ returns empty for empty', toTikz('') === '');
 
@@ -133,7 +141,8 @@ section('math text');
   const mathy = [
     '\\theta', 'm', 'F', "F'", '2+2', '2.5', 'E=mc^2', 'x^2',
     'f_x', 'force_x', 'F_net', 'v_max', 'theta_max',
-    'T_{rms}', 'v_{max}', '\\vec{F}_{1}', '\\frac{1}{2}', 'Solar_Array_1', 'a_1 + b_2',
+    'T_{rms}', 'v_{max}', '\\vec{F}_{1}', '\\frac{1}{2}', '\\frac{x^2}{3}',
+    'Solar_Array_1', 'a_1 + b_2',
   ];
   const prose = [
     'Block on an incline', 'Input stage', 'Solar array', 'Add a plot',

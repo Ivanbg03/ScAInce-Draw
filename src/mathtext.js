@@ -2,7 +2,7 @@
  * A LaTeX-lite renderer for labels.
  *
  * The document stores the LaTeX source, for example "\vec{F}_{net}".
- * - The SVG shows an approximation: real Unicode symbols and tspan subscripts.
+ * - The SVG shows an approximation: real Unicode symbols and positioned scripts.
  * - The TikZ export emits the source unchanged inside $...$, so the paper gets
  *   the exact formula.
  *
@@ -325,7 +325,7 @@ function textPaintAttrs(color, halo, size) {
   };
 }
 
-function mathTextWithFractions(source, options, runs) {
+function mathTextWithPositionedRuns(source, options, runs) {
   const {
     x = 0, y = 0, anchor = 'middle', size = 14,
     color = 'currentColor', rotate = 0, baseline = 'middle',
@@ -355,6 +355,18 @@ function mathTextWithFractions(source, options, runs) {
     return node;
   };
 
+  const appendMath = (text, atX, atY, runSize) => {
+    group.append(mathText(text, {
+      x: atX,
+      y: atY,
+      anchor: 'middle',
+      size: runSize,
+      color,
+      baseline,
+      halo,
+    }));
+  };
+
   for (const run of runs) {
     if (run.frac && run.shift === 'base') {
       const fracSize = round(size * 0.72, 2);
@@ -364,7 +376,7 @@ function mathTextWithFractions(source, options, runs) {
       const bottom = y + size * 0.38;
       const ruleY = y + size * 0.03;
 
-      appendText(plain(run.frac.numerator), center, top, fracSize, 'middle', false);
+      appendMath(run.frac.numerator, center, top, fracSize);
       if (halo) {
         group.append(svg('line', {
           x1: round(cursor, 3), y1: round(ruleY, 3),
@@ -381,7 +393,7 @@ function mathTextWithFractions(source, options, runs) {
         'stroke-width': round(Math.max(1, size * 0.08), 2),
         'stroke-linecap': 'round',
       }));
-      appendText(plain(run.frac.denominator), center, bottom, fracSize, 'middle', false);
+      appendMath(run.frac.denominator, center, bottom, fracSize);
       cursor += width;
       continue;
     }
@@ -415,8 +427,8 @@ export function mathText(source, options = {}) {
   } = options;
 
   const runs = toRuns(source);
-  if (runs.some((run) => run.frac)) {
-    return mathTextWithFractions(source, options, runs);
+  if (runs.some((run) => run.frac || run.shift !== 'base')) {
+    return mathTextWithPositionedRuns(source, options, runs);
   }
 
   // Georgia carries no combining marks, so \vec{F} came out as a tofu box.

@@ -204,37 +204,48 @@ console.log('\nlabel baselines');
 
   check('a plain label has no shift', dyOf('abc').every((value) => value === 0));
 
-  // After each run the cumulative shift must equal that run's own level: zero
-  // on the baseline, down for a subscript, up for a superscript. An em value
-  // would break this, because the script tspan carries a smaller font-size and
-  // em resolves against that, so the way back up would fall short.
+  const positionedTextOf = (source) => {
+    const root = mathText(source, { size, x: 0, y: 0, anchor: 'start' });
+    const text = [];
+    walk(root, (node) => {
+      if (node.tagName === 'text' && node.textContent) {
+        text.push({
+          value: node.textContent,
+          y: Number(node.attributes.y),
+          size: Number(node.attributes['font-size']),
+        });
+      }
+    });
+    return { root, text };
+  };
+
+  // Scripted labels use positioned text nodes so the browser cannot flatten a
+  // power such as x^2 into x2.
   const { toRuns } = await import('../src/mathtext.js');
   const LEVEL = { base: 0, sub: 0.28, sup: -0.45 };
 
   for (const source of ['x_1y', 'a^2b', 'F_1 + F_2', 'v_{max}w', 'a_1b^2c']) {
-    const shifts = dyOf(source);
+    const { root, text } = positionedTextOf(source);
     const runs = toRuns(source);
-    check(`"${source}" emits one span per run`, shifts.length === runs.length,
-      `${shifts.length} vs ${runs.length}`);
+    check(`"${source}" renders as positioned text`, root.tagName === 'g', root.tagName);
+    check(`"${source}" emits one text node per run`, text.length === runs.length,
+      `${text.length} vs ${runs.length}`);
 
-    let cumulative = 0;
-    let correct = true;
-    runs.forEach((run, index) => {
-      cumulative += shifts[index];
-      if (Math.abs(cumulative - LEVEL[run.shift] * size) > 1e-6) correct = false;
-    });
-    check(`"${source}" keeps every run on its own level`, correct, JSON.stringify(shifts));
+    const correct = runs.every((run, index) => (
+      Math.abs(text[index].y - LEVEL[run.shift] * size) < 1e-6
+    ));
+    check(`"${source}" keeps every run on its own level`, correct, JSON.stringify(text));
   }
 
-  const subscript = mathText('F_1', { size });
+  const subscript = positionedTextOf('F_1').text;
   check('a subscript is smaller than the base',
-    Number(subscript.children[1].attributes['font-size']) < size,
-    subscript.children[1].attributes['font-size']);
+    subscript[1].size < size,
+    String(subscript[1].size));
   check('a subscript moves down',
-    Number(subscript.children[1].attributes.dy) > 0,
-    subscript.children[1].attributes.dy);
+    subscript[1].y > subscript[0].y,
+    JSON.stringify(subscript));
   check('a superscript moves up',
-    Number(mathText('x^2', { size }).children[1].attributes.dy) < 0);
+    positionedTextOf('x^2').text[1].y < positionedTextOf('x^2').text[0].y);
 
   const fraction = mathText('\\frac{1}{2}', { size });
   const fractionTags = [];
@@ -248,6 +259,13 @@ console.log('\nlabel baselines');
   check('a fraction draws numerator and denominator',
     fractionText.includes('1') && fractionText.includes('2'),
     JSON.stringify(fractionText));
+
+  const fractionPower = positionedTextOf('\\frac{x^2}{3}').text;
+  const numeratorBase = fractionPower.find((node) => node.value === 'x');
+  const numeratorPower = fractionPower.find((node) => node.value === '2');
+  check('a fraction keeps a nested power raised',
+    numeratorPower && numeratorBase && numeratorPower.y < numeratorBase.y,
+    JSON.stringify(fractionPower));
 }
 
 /* 4. The export mode drops the interactive layers. */
