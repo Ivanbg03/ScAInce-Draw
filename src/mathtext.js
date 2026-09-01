@@ -107,12 +107,67 @@ function advanceOf(text, size) {
   return width * size;
 }
 
+const SCRIPT_SCALE = 0.72;
+const SUB_SHIFT = 0.28;
+const SUP_SHIFT = -0.45;
+
+function scriptOffset(shift, size) {
+  if (shift === 'sub') return SUB_SHIFT * size;
+  if (shift === 'sup') return SUP_SHIFT * size;
+  return 0;
+}
+
+function scriptSize(shift, size) {
+  return shift === 'base' ? size : round(size * SCRIPT_SCALE, 2);
+}
+
+function fractionLayout(run, size) {
+  const fracSize = round(size * SCRIPT_SCALE, 2);
+  const numerator = mathMetrics(run.frac.numerator, fracSize);
+  const denominator = mathMetrics(run.frac.denominator, fracSize);
+  const gap = Math.max(2, size * 0.18);
+  return {
+    fracSize,
+    numeratorY: -(numerator.descent + gap),
+    denominatorY: denominator.ascent + gap,
+    width: Math.max(numerator.width, denominator.width) + size * 0.25,
+    numerator,
+    denominator,
+  };
+}
+
 function fractionWidth(run, size) {
-  const fracSize = size * 0.72;
+  const layout = fractionLayout(run, size);
   return Math.max(
-    measureText(run.frac.numerator, fracSize),
-    measureText(run.frac.denominator, fracSize),
+    layout.numerator.width,
+    layout.denominator.width,
   ) + size * 0.25;
+}
+
+function mathMetrics(source, size = 14) {
+  const runs = toRuns(source);
+  let width = 0;
+  let ascent = size * 0.5;
+  let descent = size * 0.35;
+
+  for (const run of runs) {
+    if (run.frac && run.shift === 'base') {
+      const layout = fractionLayout(run, size);
+      width += layout.width;
+      ascent = Math.max(ascent, -layout.numeratorY + layout.numerator.ascent);
+      descent = Math.max(descent, layout.denominatorY + layout.denominator.descent);
+      continue;
+    }
+
+    const runSize = scriptSize(run.shift, size);
+    const offset = scriptOffset(run.shift, size);
+    const accentRise = run.accent && DRAWN[run.accent] ? DRAWN[run.accent].rise * runSize : 0;
+    width += advanceOf(run.text, runSize);
+    ascent = Math.max(ascent, runSize * 0.5 + accentRise - offset);
+    descent = Math.max(descent, offset + runSize * 0.35);
+  }
+
+  return { width, ascent, descent };
 }
 
 /**
@@ -369,12 +424,12 @@ function mathTextWithPositionedRuns(source, options, runs) {
 
   for (const run of runs) {
     if (run.frac && run.shift === 'base') {
-      const fracSize = round(size * 0.72, 2);
-      const width = fractionWidth(run, size);
+      const layout = fractionLayout(run, size);
+      const { fracSize, width } = layout;
       const center = cursor + width / 2;
-      const top = y - size * 0.34;
-      const bottom = y + size * 0.38;
-      const ruleY = y + size * 0.03;
+      const top = y + layout.numeratorY;
+      const bottom = y + layout.denominatorY;
+      const ruleY = y;
 
       appendMath(run.frac.numerator, center, top, fracSize);
       if (halo) {
@@ -398,9 +453,8 @@ function mathTextWithPositionedRuns(source, options, runs) {
       continue;
     }
 
-    const target = run.shift === 'sub' ? 0.28 : run.shift === 'sup' ? -0.45 : 0;
-    const runSize = run.shift === 'base' ? size : round(size * 0.72, 2);
-    const runY = y + target * size;
+    const runSize = scriptSize(run.shift, size);
+    const runY = y + scriptOffset(run.shift, size);
     const baseWidth = advanceOf(run.text, runSize);
     appendText(run.text, cursor, runY, runSize, 'start', run.upright);
 
@@ -460,8 +514,8 @@ export function mathText(source, options = {}) {
   let pendingDy = 0;
 
   for (const run of runs) {
-    const target = run.shift === 'sub' ? 0.28 : run.shift === 'sup' ? -0.45 : 0;
-    const runSize = run.shift === 'base' ? size : round(size * 0.72, 2);
+    const target = run.shift === 'sub' ? SUB_SHIFT : run.shift === 'sup' ? SUP_SHIFT : 0;
+    const runSize = scriptSize(run.shift, size);
 
     const span = svg('tspan', {
       dx: pendingDx ? round(pendingDx, 3) : null,

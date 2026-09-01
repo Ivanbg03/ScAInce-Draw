@@ -266,6 +266,33 @@ console.log('\nlabel baselines');
   check('a fraction keeps a nested power raised',
     numeratorPower && numeratorBase && numeratorPower.y < numeratorBase.y,
     JSON.stringify(fractionPower));
+
+  const projectile = mathText('y=x\\tan\\theta-\\frac{gx^2}{2v_o^2\\cos^2\\theta}', {
+    size,
+    x: 0,
+    y: 0,
+    anchor: 'start',
+  });
+  let seenRule = false;
+  let ruleY = 0;
+  const denominatorText = [];
+  walk(projectile, (node) => {
+    if (node.tagName === 'line' && !seenRule) {
+      seenRule = true;
+      ruleY = Number(node.attributes.y1);
+      return;
+    }
+    if (seenRule && node.tagName === 'text' && node.textContent) {
+      denominatorText.push({ value: node.textContent, y: Number(node.attributes.y) });
+    }
+  });
+  check('a projectile fraction draws a denominator below the rule',
+    denominatorText.length > 0 && denominatorText.every((node) => node.y > ruleY + size * 0.15),
+    JSON.stringify({ ruleY, denominatorText }));
+  check('a projectile denominator keeps cos and theta under the rule',
+    denominatorText.some((node) => node.value.trim() === 'cos')
+      && denominatorText.some((node) => node.value === 'θ'),
+    JSON.stringify(denominatorText));
 }
 
 /* 4. The export mode drops the interactive layers. */
