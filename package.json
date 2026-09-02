@@ -1,5 +1,5 @@
 {
-  "name": "diagram-studio",
+  "name": "scaince-draw",
   "private": true,
   "type": "module",
   "description": "A GUI for mathematics and physics diagrams. SVG, PNG and TikZ export.",

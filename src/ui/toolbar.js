@@ -17,7 +17,7 @@ function brand() {
   mark.innerHTML = '<path d="M3 13V3M3 13h10" stroke="currentColor" stroke-width="1.6"'
     + ' stroke-linecap="round"/><path d="M3 10.5C6 10.5 7 4.5 12.5 4.5" stroke="currentColor"'
     + ' stroke-width="1.6" stroke-linecap="round" opacity=".55"/>';
-  return el('span', { class: 'brand' }, [mark, 'Diagram Studio']);
+  return el('span', { class: 'brand' }, [mark, 'ScAInce Draw']);
 }
 
 /** A file-safe stem from the diagram title. */

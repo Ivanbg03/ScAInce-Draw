@@ -1,4 +1,4 @@
-# Diagram Studio
+# ScAInce Draw
 
 A GUI for mathematics and physics diagrams. It exports SVG, PNG and TikZ.
 
