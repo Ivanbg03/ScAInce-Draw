@@ -1,0 +1,5 @@
+interface:
+  display_name: "ScAInce Draw"
+  short_description: "Create verified science diagrams"
+  brand_color: "#0F766E"
+  default_prompt: "Use $scaince-draw to create and verify an editable scientific diagram."

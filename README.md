@@ -4,6 +4,13 @@ A GUI for mathematics and physics diagrams. It exports SVG, PNG and TikZ.
 
 No build step. No dependencies. Vanilla ES modules and SVG.
 
+**Live editor:** [scaince-draw.kalinadoseva.chatgpt.site](https://scaince-draw.kalinadoseva.chatgpt.site/)
+
+ScAInce Draw is built for people and agents to work on the same editable
+scientific diagram. The browser app exposes WebMCP tools for structured
+creation, inspection, visual checks, circuit checks, and SVG or TikZ export.
+The reusable Codex add-on is in [`skills/scaince-draw`](skills/scaince-draw/).
+
 ## Run it
 
 ```sh
@@ -13,7 +20,7 @@ python -m http.server 8124 --bind 127.0.0.1
 Then open http://127.0.0.1:8124/.
 
 ```sh
-npm test             # 1848 logic and robustness checks, no browser needed
+npm test             # 2166 logic and robustness checks, no browser needed
 npm run chrome &     # Chrome with a debugging port, serving the app
 npm run test:browser    # 146 end-to-end checks through real mouse and key events
 npm run test:components # audits all 48 components, field by field
@@ -785,6 +792,39 @@ GUI uses, so the agent path and the GUI path cannot drift. Every tool is
 unregistered through its own `AbortController`, and the six read tools carry
 `readOnlyHint: true`. A pill in the toolbar shows the count, or "WebMCP
 unavailable" when no host is present.
+
+### Tool registration
+
+Each WebMCP tool follows the browser's `document.modelContext.registerTool()`
+pattern. This shortened example is the `inspect_diagram` tool used by ScAInce Draw:
+
+```js
+await model.registerTool({
+  name: 'inspect_diagram',
+  description: 'Read the current diagram and its diagnostics.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      includeSource: { type: 'boolean', default: false },
+      includeSchemas: { type: 'boolean', default: false },
+    },
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: true },
+  execute: async ({ includeSource = false, includeSchemas = false } = {}) =>
+    snapshot({ includeSource, includeSchemas }),
+}, { signal: controller.signal });
+```
+
+- `name` is the stable action an agent can call.
+- `description` tells the agent when the action is useful.
+- `inputSchema` defines and validates the accepted input.
+- `execute` runs the app code and returns the structured result.
+- `readOnlyHint` marks tools that inspect without changing the diagram.
+
+ScAInce Draw uses this pattern for 32 tools, from `replace_diagram` and
+`add_vector` to `check_visual_layout`, `check_connections`, `export_svg`, and
+`export_tikz`.
 
 ### Geometry, not coordinates
 
