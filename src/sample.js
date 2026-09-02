@@ -1,5 +1,5 @@
 /**
- * The starter document: a block on an incline.
+ * The starter document: a balanced Wheatstone bridge.
  *
  * It is built through createElement, so every schema default is filled in and
  * the sample cannot drift out of step with the type definitions.
@@ -16,59 +16,60 @@ export function sampleDocument() {
     return element;
   };
 
-  const incline = 25;
-  const body = make('body', {
-    id: 'block',
-    x: 6.67, y: 6.0, width: 2.4, height: 1.4, angle: incline,
-    fill: '#dbeafe', label: 'm', labelSize: 17,
-  });
+  const sideLength = Math.hypot(3.5, 3);
+  const sideAngle = Math.atan2(3, 3.5) * 180 / Math.PI;
 
   return {
-    title: 'Block on an incline',
-    // Inherit the canvas defaults rather than restate them, so the grid
-    // step is defined in exactly one place.
-    canvas: emptyDocument().canvas,
+    title: 'Wheatstone bridge',
+    canvas: {
+      ...emptyDocument().canvas,
+      width: 14.2,
+      height: 10.4,
+      grid: 0.2,
+    },
     elements: [
-      make('surface', {
-        id: 'ground',
-        x: 2, y: 3, length: 12, angle: incline, side: 'below',
-        hatchStep: 0.45, color: '#334155', label: '',
+      make('resistor', {
+        id: 'R1', x: 6.25, y: 6.7, length: sideLength, angle: sideAngle,
+        kind: 'zigzag', label: 'R_1', labelSide: 'left', labelSize: 17,
+        color: '#1f2937', strokeWidth: 2.3,
       }),
-      make('arrow', {
-        id: 'horizontal-ref',
-        x1: 2, y1: 3, x2: 9, y2: 3,
-        head: 'none', style: 'dashed', width: 1.5, color: '#94a3b8',
+      make('resistor', {
+        id: 'R2', x: 6.25, y: 3.7, length: sideLength, angle: 180 - sideAngle,
+        kind: 'zigzag', label: 'R_2', labelSide: 'left', labelSize: 17,
+        color: '#1f2937', strokeWidth: 2.3,
       }),
-      make('angle', {
-        id: 'incline-angle',
-        x: 2, y: 3, from: 0, to: incline, radius: 2.2,
-        color: '#334155', label: '\\theta', labelSize: 17,
+      make('resistor', {
+        id: 'R3', x: 9.75, y: 6.7, length: sideLength, angle: 180 - sideAngle,
+        kind: 'zigzag', label: 'R_3', labelSide: 'right', labelSize: 17,
+        color: '#1f2937', strokeWidth: 2.3,
       }),
-      body,
-      make('force', {
-        id: 'weight',
-        bodyId: body.id, magnitude: 2.6, angle: -90,
-        color: '#b91c1c', label: 'm\\vec{g}', labelSide: 'right',
+      make('resistor', {
+        id: 'R4', x: 9.75, y: 3.7, length: sideLength, angle: sideAngle,
+        kind: 'zigzag', label: 'R_4', labelSide: 'right', labelSize: 17,
+        color: '#1f2937', strokeWidth: 2.3,
       }),
-      make('force', {
-        id: 'normal',
-        bodyId: body.id, magnitude: 2.0, angle: incline + 90,
-        color: '#1d4ed8', label: '\\vec{N}', labelSide: 'left',
+      make('meter', {
+        id: 'G', x: 8, y: 5.2, length: 7, angle: 0,
+        kind: 'galvanometer', label: '', size: 0.78,
+        color: '#0f766e', strokeWidth: 2.4,
       }),
-      make('force', {
-        id: 'friction',
-        bodyId: body.id, magnitude: 1.5, angle: incline,
-        color: '#15803d', label: '\\vec{f}_{k}', labelSide: 'left',
+      make('source', {
+        id: 'Vs', x: 2.35, y: 5.2, length: 3, angle: 90,
+        kind: 'battery', cells: 2, label: 'V_s', labelSide: 'right',
+        labelSize: 17, size: 0.75, color: '#b45309', strokeWidth: 2.3,
+      }),
+      make('wire', {
+        id: 'top-supply', points: '2.35,3.7 2.35,2.2 8,2.2',
+        route: 'orthogonal', dots: 'ends', color: '#334155', strokeWidth: 2.3,
+      }),
+      make('wire', {
+        id: 'bottom-supply', points: '2.35,6.7 2.35,8.2 8,8.2',
+        route: 'orthogonal', dots: 'ends', color: '#334155', strokeWidth: 2.3,
       }),
       make('label', {
-        id: 'caption',
-        x: 12, y: 14.4, text: 'Block on an incline', size: 22, color: '#0f172a',
-      }),
-      make('label', {
-        id: 'note',
-        x: 12, y: 13.4,
-        text: 'Drag the arrow tip. Add a plot, a block or a lens from the palette.',
-        size: 13, color: '#64748b',
+        id: 'balance', x: 8, y: 9.45,
+        text: '\\frac{R_1}{R_2}=\\frac{R_3}{R_4}',
+        size: 22, color: '#111827', anchor: 'middle',
       }),
     ],
   };

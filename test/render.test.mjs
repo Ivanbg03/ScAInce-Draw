@@ -740,8 +740,8 @@ section('TikZ export');
   check('closes the tikzpicture', source.includes('\\end{tikzpicture}'));
   check('sets a scale', /scale=[\d.]+/.test(source));
   check('defines the colours it uses', source.includes('\\definecolor{c0}{HTML}{'));
-  check('draws the weight force', source.includes('% weight (force)'));
-  check('emits the theta label', source.includes('$\\theta$'));
+  check('draws the first bridge resistor', source.includes('% R1 (resistor)'));
+  check('draws the galvanometer', source.includes('% G (meter)'));
   check('names every element in a comment',
     sample.elements.every((element) => source.includes(`% ${element.id} (${element.type})`)));
 

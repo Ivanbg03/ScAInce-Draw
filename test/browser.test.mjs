@@ -1324,12 +1324,10 @@ try {
     check('every fifth line is a major line', grid.majors > 0 && grid.majors < grid.total,
       `${grid.majors} of ${grid.total}`);
 
-    // The sample must not restate the canvas: one source of truth.
-    check('the sample inherits the default grid step',
+    // The circuit starter uses a finer grid for its compact geometry.
+    check('the sample uses the circuit grid step',
       await page.eval(`
-        return import('./src/sample.js').then((m) => import('./src/store.js').then((s) => (
-          m.sampleDocument().canvas.grid === s.emptyDocument().canvas.grid
-        )));
+        return import('./src/sample.js').then((m) => m.sampleDocument().canvas.grid === 0.2);
       `));
 
     // A very fine grid at a low zoom must thin out rather than turn solid.

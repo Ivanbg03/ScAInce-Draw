@@ -96,7 +96,7 @@ const view = { scale: 40, panX: 0, panY: 0 };
 console.log('\nsample document');
 {
   const sample = sampleDocument();
-  const { root } = renderDocument(sample, view, { selection: ['block'], interactive: true });
+  const { root } = renderDocument(sample, view, { selection: ['R1'], interactive: true });
   const nodes = inspect(root, 'sample');
   check('the tree has content', nodes > 30, `${nodes} nodes`);
 
@@ -341,7 +341,7 @@ console.log('\nlabel baselines');
 console.log('\nexport mode');
 {
   const sample = sampleDocument();
-  const { root } = renderDocument(sample, view, { selection: ['block'], interactive: false, background: '#ffffff' });
+  const { root } = renderDocument(sample, view, { selection: ['R1'], interactive: false, background: '#ffffff' });
   let grid = 0;
   let handles = 0;
   walk(root, (node) => {
