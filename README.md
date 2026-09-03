@@ -16,10 +16,21 @@ diagram.
 
 ## WebMCP
 
-The editor registers tools through `document.modelContext.registerTool()`.
-Agents can create diagrams, add elements and connectors, inspect anchors,
-check visual layout and circuit connections, and export SVG or TikZ. The
-ScAInce Draw Codex skill is in [`skills/scaince-draw`](skills/scaince-draw/).
+ScAInce Draw exposes 32 WebMCP tools through
+`document.modelContext.registerTool()`.
+
+The tools are designed around the workflows an agent needs to create a
+trustworthy scientific diagram:
+
+- **Discover:** inspect the diagram, available element schemas, bounds, and anchors.
+- **Create:** add elements, vectors, connectors, circuit parts, and complete diagrams.
+- **Arrange:** attach objects to surfaces, position content in plot axes, and place labels.
+- **Verify:** check visual layout, diagram diagnostics, and circuit connections.
+- **Export:** generate SVG and TikZ from the final editable diagram.
+
+Tools operate on the same document store as the graphical editor, so changes
+made by an agent immediately appear in the canvas and remain editable by the
+user.
 
 ## Run locally
 
